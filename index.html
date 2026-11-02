@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S.R.C.P.: Операція Виживання 3D</title>
+    <title>S.R.C.P.: Операція Виживання 3D (60 Серій)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -26,39 +26,65 @@
             top: 20px;
             left: 20px;
             z-index: 10;
-            background: rgba(10, 10, 10, 0.85);
+            background: rgba(12, 12, 12, 0.92);
             border: 2px solid #ff3333;
             padding: 20px;
-            max-width: 450px;
+            width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
             border-radius: 6px;
-            box-shadow: 0 0 15px rgba(255, 51, 51, 0.4);
-            pointer-events: auto;
+            box-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
         }
-        h1 { font-size: 18px; color: #ff3333; margin-bottom: 10px; text-transform: uppercase; }
-        p { font-size: 14px; line-height: 1.5; margin-bottom: 15px; color: #e0e0e0; }
+        .series-counter {
+            font-size: 13px;
+            color: #ff3333;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #ff3333;
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        h1 { font-size: 16px; color: #ff3333; margin-bottom: 10px; text-transform: uppercase; }
+        .visual-box {
+            font-size: 13px;
+            color: #ffcccc;
+            background: #181818;
+            border: 1px solid #333;
+            padding: 10px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .story-text { font-size: 14px; line-height: 1.5; margin-bottom: 15px; color: #e0e0e0; }
         .controls-hint {
-            font-size: 12px;
+            font-size: 11px;
             color: #00ff66;
             border-top: 1px dashed #444;
-            padding-top: 10px;
-            margin-bottom: 15px;
+            padding-top: 8px;
+            margin-bottom: 12px;
+        }
+        .choices-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
         .action-btn {
             background: #1a1a1a;
             color: #00ff66;
             border: 1px solid #00ff66;
-            padding: 10px 15px;
+            padding: 10px 14px;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             border-radius: 4px;
-            width: 100%;
-            margin-top: 5px;
+            text-align: left;
             transition: all 0.2s;
         }
         .action-btn:hover {
             background: #00ff66;
             color: #050505;
+            box-shadow: 0 0 10px rgba(0, 255, 102, 0.5);
         }
     </style>
 </head>
@@ -67,148 +93,405 @@
     <canvas id="gameCanvas"></canvas>
 
     <div class="ui-overlay">
-        <h1 id="missionTitle">СЕРІЯ 1: ПРОБУДЖЕННЯ</h1>
-        <p id="missionText">Ти в темному приміщенні бункера. Навколо червоне аварійне світло. Використовуй клавіші W, A, S, D (або стрілки), щоб рухатися і дістатися до виходу!</p>
-        <div class="controls-hint">
-            КЕРУВАННЯ: [W, A, S, D] або [Стрілки] — рух персонажа. [ПРОБІГ] — дія / стрибок.
+        <div class="series-counter">
+            <span id="seriesNumber">СЕРІЯ 1 з 60</span>
+            <span id="timerDisplay" style="color: #ff3333;"></span>
         </div>
-        <div id="choiceContainer">
-            <button class="action-btn" onclick="nextMission()">[ ПРОДОВЖИТИ ШЛЯХ ]</button>
+        <h1 id="missionTitle">«Пробудження»</h1>
+        <div class="visual-box" id="visualText">Візуальний ряд: Ти лежиш на підлозі напівтемного приміщення. Навколо червоне аварійне світло. На столі блимає таймер: 14:59...</div>
+        <p id="missionText">Дія: Різко підхоплюєшся, хапаєшся за голову, оглядаєшся. З вентиляції йде легкий дим.</p>
+        <div class="controls-hint">
+            КЕРУВАННЯ В 3D: [W, A, S, D] або [Стрілки] — рух гравця. [ПРОБІГ] — вогонь / дія.
+        </div>
+        <div class="choices-container" id="choicesContainer">
+            <!-- Динамічні кнопки вибору -->
         </div>
     </div>
 
-    <!-- Підключаємо Three.js для 3D-графіки -->
+    <!-- Three.js для 3D середовища -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Сценарійні місії для 3D світу
-        const missions = [
-            { title: "СЕРІЯ 1: ПРОБУДЖЕННЯ", text: "Ти лежиш на підлозі бази S.R.C.P. На столі блимає таймер. Потрібно терміново тікати через вентиляцію чи двері!" },
-            { title: "СЕРІЯ 2-3: ПОВЕРХНЯ", text: "Ти вибрався на руїни закинутого заводу. В небі нишпорять дрони-сканери. Тримайся укриттів!" },
-            { title: "СЕРІЯ 12: БУНКЕР СХОВИЩА", text: "Ти дійшов до важких герметичних дверей сховища. Потрібно знайти обхідний шлях чи механізм." },
-            { title: "СЕРІЯ 30: ШТУРМ ВЕЖІ", text: "Перед тобою висока Вежа зв'язку у тумані. Час вирішити долю системи." },
-            { title: "СЕРІЯ 60: ГРАНД-ФІНАЛ", text: "Серце мережі відключено. Протокол перезапущено. Світ починає відновлюватися!" }
-        ];
+        // --- ПОВНА БАЗА ДАНИХ СЮЖЕТУ (УСІ 60 СЕРІЙ) ---
+        const gameData = {
+            1: { title: "Серія 1: «Пробудження»", visual: "Ти лежиш на підлозі напівтемного приміщення. Червоне аварійне світло. Таймер: 14:59...", text: "Різко підхоплюєшся, хапаєшся за голову. З вентиляції йде легкий дим.", choices: [
+                { text: "[А] Спробувати зламати електронний замок на головних дверях.", next: 2 },
+                { text: "[Б] Ризикнути й полізти в темну вузьку вентиляцію.", next: 2 }
+            ]},
+            2: { title: "Серія 2: «Вибір шляху»", visual: "Холодна іржава труба, ліхтарик висвітлює металеві стіни.", text: "Зверху лунає важкий кроковий удар. Ти замираєш. Ліхтарик на секунду гасне.", choices: [
+                { text: "[А] Повзти ліворуч у бік дивного світла й гудіння.", next: 3 },
+                { text: "[Б] Повзти праворуч у повну тишу й темряву.", next: 3 }
+            ]},
+            3: { title: "Серія 3: «Поверхня»", visual: "Ніч, руїни закинутого заводу, в небі проноситься прожектор дзона-сканера.", text: "Ховаєшся за бетонною колоною. Поламана рація S.R.C.P. оживає: «Хто в секторі?»", choices: [
+                { text: "[А] Відповісти в рацію (ризикнути видати позицію).", next: 4 },
+                { text: "[Б] Розбити рацію об камінь і тікати далі мовчки.", next: 4 }
+            ]},
+            4: { title: "Серія 4: «Закинута лабораторія»", visual: "Напівзруйнована сторожівка. Старий смартфон із мерехтливим екраном.", text: "Телефон починає дзвонити. На екрані напис: «Вхід заблоковано».", choices: [
+                { text: "[А] Взяти слухавку / натиснути відповідь.", next: 5 },
+                { text: "[Б] Збити телефон ударом ноги нафіг.", next: 5 }
+            ]},
+            5: { title: "Серія 5: «Шлях нагору»", visual: "Позаду лунає металевий скрегіт — за тобою хтось іде.", text: "Перед тобою дві перешкоди. Обери шлях втечі.", choices: [
+                { text: "[А] Бігти до старого гучного ліфта-підйомника.", next: 6 },
+                { text: "[Б] Тихо лізти по іржавій вертикальній пожежній драбині.", next: 6 }
+            ]},
+            6: { title: "Серія 6: «Зовнішній периметр»", visual: "Відкрита місцевість, холодний вітер, туман. Попереду високий паркан.", text: "Високий паркан із колючим дротом блокує шлях.", choices: [
+                { text: "[А] Шукати слабке місце внизу (підкоп під сіткою).", next: 7 },
+                { text: "[Б] Перелазити зверху на свій страх і ризик.", next: 7 }
+            ]},
+            7: { title: "Серія 7: «Сигнал тривоги»", visual: "Спалахують червоні датчики руху! Гуркіт металу.", text: "При спробі перелазити зачіпаєш металевий лист, лунає гуркіт.", choices: [
+                { text: "[А] Замріти на місці і перечекати в кущах.", next: 8 },
+                { text: "[Б] Стрімко кинутися бігти вперед, не оглядаючись.", next: 8 }
+            ]},
+            8: { title: "Серія 8: «Незнайомець у тіні»", visual: "Закинута зупинка в тумані. Людина в капюшоні простягає згорток.", text: "Незнайомець мовчки простягає тобі старий згорток і зникає.", choices: [
+                { text: "[А] Розгорнути згорток (що там всередині?).", next: 9 },
+                { text: "[Б] Ігнорувати і продовжувати шлях до найближчого бункера.", next: 9 }
+            ]},
+            9: { title: "Серія 9: «Карта чи пастка»", visual: "У згортку виявляється саморобна карта з двома позначеними точками евакуації.", text: "Куди попрямувати за саморобною картою?", choices: [
+                { text: "[А] Йти до «Насосної станції» (ближче, але підозріло).", next: 10 },
+                { text: "[Б] Йти до «Сховища №3» (далеко через відкрите поле).", next: 10 }
+            ]},
+            10: { title: "Серія 10: «Перешкода на дорозі»", visual: "Дорога заблокована зграєю диких бродячих собак та пастками.", text: "Небезпечна зона перепиняє шлях.", choices: [
+                { text: "[А] Шукати важку арматуру для захисту і пробиватися силою.", next: 11 },
+                { text: "[Б] Обійти небезпечну зону поповзом через брудну трубу.", next: 11 }
+            ]},
+            11: { title: "Серія 11: «Слабкість»", visual: "Витік газу дається взнаки. В голові паморочиться, ти падаєш на коліна.", text: "Організм здає позиції через токсичний газ.", choices: [
+                { text: "[А] Шукати аптечку в покинутому поряд автомобілі.", next: 12 },
+                { text: "[Б] З останніх сил терпіти і йти вперед до мети.", next: 12 }
+            ]},
+            12: { title: "Серія 12: «Двері у сховище»", visual: "Важкі герметичні двері. Цифрова панель вимагає код.", text: "Підказки немає. Як відкрити шлюз?", choices: [
+                { text: "[А] Ввести код з голови / на удачу (наприклад, 4040).", next: 13 },
+                { text: "[Б] Шукати механічний важіль аварійного відкриття збоку.", next: 13 }
+            ]},
+            13: { title: "Серія 13: «Пастка системи»", visual: "Аварійна сирена! Стеля починає опускатися!", text: "Двері заблоковані намертво. Терміново рятуйся!", choices: [
+                { text: "[А] Спробувати зупинити механізм руками / клином.", next: 14 },
+                { text: "[Б] Шукати вентиляційний отвор у нижній частині стіни.", next: 14 }
+            ]},
+            14: { title: "Серія 14: «Порятунок на волосині»", visual: "Ти вислизнув у безпечний порожній зал керування.", text: "Перед тобою центральний пульт бази.", choices: [
+                { text: "[А] Увімкати центральний живильний термінал.", next: 15 },
+                { text: "[Б] Залишитися в темряві й спостерігати через вікно.", next: 15 }
+            ]},
+            15: { title: "Серія 15: «Кінець першого акту»", visual: "Екран термінала висвічує твоє ім'я.", text: "«Тестування пройдено. Починається протокол рівня 2».", choices: [
+                { text: "[А] Натиснути кнопку «Прийняти виклик» і розкрити систему.", next: 16 },
+                { text: "[Б] Спробувати вимкнути живлення бази повністю.", next: 16 }
+            ]},
+            16: { title: "Серія 16: «Замкнене коло»", visual: "БЛОК ІІ: ТАЄМНИЦЯ БАЗИ. Навколо гудуть сервери і монітори.", text: "Двері за спиною зачинені. Куди рушити всередині комплексу?", choices: [
+                { text: "[А] Досліджувати головну командну рубку.", next: 17 },
+                { text: "[Б] Піти на склад у пошуках їжі та спорядження.", next: 17 }
+            ]},
+            17: { title: "Серія 17: «Щоденник попередника»", visual: "Знайдено паперовий блокнот агента, який зник рік тому.", text: "Останній запис обірваний на півслові.", choices: [
+                { text: "[А] Читати записи далі (дізнатися всю правду).", next: 18 },
+                { text: "[Б] Швидко шукати цінний інструмент і тікати звідти.", next: 18 }
+            ]},
+            18: { title: "Серія 18: «Несподіваний дзвінок»", visual: "На головному екрані спалахує відеозв'язок. Хтось у масці.", text: "«Ти робиш помилку... Вони вже знають, де ти».", choices: [
+                { text: "[А] Запитати у незнайомця: «Хто ти і чого хочеш?»", next: 19 },
+                { text: "[Б] Відключити монітор ударом палиці, щоб не демаскуватися.", next: 19 }
+            ]},
+            19: { title: "Серія 19: «Отруйне повітря»", visual: "Аварійний генератор заповнює кімнату чадним газом.", text: "Кімната заповнюється отруйним димом.", choices: [
+                { text: "[А] Бігти до вентиляційного люка в підлозі.", next: 20 },
+                { text: "[Б] Шукати рубильник перезапуску системи очищення.", next: 20 }
+            ]},
+            20: { title: "Серія 20: «Стукіт у двері»", visual: "Важкі металеві двері плавляться від плазмового різака нападників.", text: "Хтось ріже зовнішній шлюз бункера.", choices: [
+                { text: "[А] Барикадувати двері важкими меблями та ящиками.", next: 21 },
+                { text: "[Б] Готувати пастку з електричними проводами біля порога.", next: 21 }
+            ]},
+            21: { title: "Серія 21: «Контейнер на порозі»", visual: "Нападники відступили, залишивши металевий контейнер із твоїм позивним.", text: "Біля входу лежить запечатаний вантаж.", choices: [
+                { text: "[А] Обережно відкрити контейнер своїми руками.", next: 22 },
+                { text: "[Б] Відійти вглиб кімнати і підірвати його дистанційно.", next: 22 }
+            ]},
+            22: { title: "Серія 22: «Цифровий ключ»", visual: "Всередині контейнера — старий жорсткий диск із секретними файлами.", text: "Знайдено цифровий ключ доступу.", choices: [
+                { text: "[А] Підключити диск до головного термінала бункера.", next: 23 },
+                { text: "[Б] Забрати диск у кишеню і не ризикувати системою.", next: 23 }
+            ]},
+            23: { title: "Серія 23: «Зворотний відлік»", visual: "Активовано протокол самознищення! До вибуху: 3 хвилини.", text: "Монітори спалахнули червоним. Терміново вживай заходів!", choices: [
+                { text: "[А] Шукати файл скасування в базі даних комп'ютера.", next: 24 },
+                { text: "[Б] Кинути все і негайно тікати крізь аварійний тунель.", next: 24 }
+            ]},
+            24: { title: "Серія 24: «Координати вежі»", visual: "Таймер зупинено на останній секунді. На екрані координати вежі.", text: "На терміналі з'явилися координати «Вежі зв'язку».", choices: [
+                { text: "[А] Вирушати до вежі вночі під прикриттям темряви.", next: 25 },
+                { text: "[Б] Перечекати день у бункері і йти на світанку.", next: 25 }
+            ]},
+            25: { title: "Серія 25: «Погана погода»", visual: "Крижана злива, нульова видимість, глибокий бруд.", text: "Шлях ускладнений негодою.", choices: [
+                { text: "[А] Йти по відкритій дорозі (швидко, але небезпечно).", next: 26 },
+                { text: "[Б] Йти через занедбані цехи заводу (повільно, але сховано).", next: 26 }
+            ]},
+            26: { title: "Серія 26: «Зіпсований міст»", visual: "Глибокий розлам усередині цехів із піднятим металевим мостом.", text: "Шлях перепиняє прірва.", choices: [
+                { text: "[А] Шукати важкий ручний важіль керування мостом.", next: 27 },
+                { text: "[Б] Ризикнути перестрибнути або пройти по вузькій іржавій балці.", next: 27 }
+            ]},
+            27: { title: "Серія 27: «Падіння»", visual: "Балка хитається, ти зриваєшся і висіis над прірвою!", text: "Сили на мінімумі, руки зісковзують.", choices: [
+                { text: "[А] Напружити всі м'язи і підтягнутися самостійно.", next: 28 },
+                { text: "[Б] Покликати на допомогу (можливо, хтось поруч).", next: 28 }
+            ]},
+            28: { title: "Серія 28: «Таємничий рятівник»", visual: "Сильна рука в масці витягує тебе на тверду підлогу.", text: "Це той самий незнайомець із 8-ї серії.", choices: [
+                { text: "[А] Повірити йому і піти в його табір.", next: 29 },
+                { text: "[Б] Вирватися, направити зброю і тримати дистанцію.", next: 29 }
+            ]},
+            29: { title: "Серія 29: «План інженера»", visual: "Незнайомець пропонує план вимкнення серверів ворога.", text: "Він знає, як дістатися до ядра системи.", choices: [
+                { text: "[А] Вислухати його детальний план штурму вежі.", next: 30 },
+                { text: "[Б] Відмовитися, забрати карту і діяти по-своєму.", next: 30 }
+            ]},
+            30: { title: "Серія 30: «Фінал другого акту»", visual: "Ви на пагорбі. Попереду в тумані здіймається Вежа зв'язку з дронами.", text: "Час вирішального підходу до вежі.", choices: [
+                { text: "[А] Починати штурм вежі негайно.", next: 31 },
+                { text: "[Б] Ретельно підготувати пастки та дочекатися ночі.", next: 31 }
+            ]},
+            31: { title: "Серія 31: «Проникнення»", visual: "БЛОК ІІІ: ШТУРМ. Навколо периметра вежі нишпорять патрулі.", text: "Як пробитися крізь ворожий периметр?", choices: [
+                { text: "[А] Прориватися через головний КПП з відволікаючим маневром (шумно).", next: 32 },
+                { text: "[Б] Проповзти через підземні комунікації прямо до фундаменту.", next: 32 }
+            ]},
+            32: { title: "Серія 32: «Всередині вежі»", visual: "Холодні сталеві стіни, гудуть сервери всередині вежі.", text: "Обери спосіб підйому всередині вежі.", choices: [
+                { text: "[А] Скористатися службовим ліфтом (швидко, але шумно).", next: 33 },
+                { text: "[Б] Йти пішки по гвинтових сходових маршах (безпечно, але довго).", next: 33 }
+            ]},
+            33: { title: "Серія 33: «Заблокований шлях»", visual: "Автоматична сирена. Загороджувальні двері перекрили прохід.", text: "Шлях заблоковано захисними плитами.", choices: [
+                { text: "[А] Зламати електронну панель керування дверима.", next: 34 },
+                { text: "[Б] Шукати вентиляційний люк у стелі сходової клітки.", next: 34 }
+            ]},
+            34: { title: "Серія 34: «Голос у системі»", visual: "На головному пульті віртуальний образ ворога говорить твоїм же голосом.", text: "Зустріч із цифровим двійником.", choices: [
+                { text: "[А] Ввести команду форматування та видалення системи.", next: 35 },
+                { text: "[Б] Спробувати витягнути основний носій даних фізично з плати.", next: 35 }
+            ]},
+            35: { title: "Серія 35: «Аварійний протокол»", visual: "Земля здригається. Система запустила протокол ліквідації.", text: "Час працює проти тебе.", choices: [
+                { text: "[А] Ввести секретний код інженера з блокнота.", next: 36 },
+                { text: "[Б] Перерізати головні кабелі живлення сокирою.", next: 36 }
+            ]},
+            36: { title: "Серія 36: «Обрушення»", visual: "Верхні рівні вежі починають падати від серії вибухів.", text: "Конструкція вежі руйнується.", choices: [
+                { text: "[А] Тікати разом із напарником до нижнього виходу.", next: 37 },
+                { text: "[Б] Ризикнути й піднятися на дах до гелікоптерного майданчика.", next: 37 }
+            ]},
+            37: { title: "Серія 37: «На даху»", visual: "Сильний вітер на даху. У небі з'являється ворожий гелікоптер.", text: "Укриття на відкритому майданчику відсутні.", choices: [
+                { text: "[А] Подати сигнал світловим ліхтариком (привернути увагу).", next: 38 },
+                { text: "[Б] Заховатися за важкою вентиляційною шахтою.", next: 38 }
+            ]},
+            38: { title: "Серія 38: «Обстріл»", visual: "Гелікоптер відкриває вогонь по даху! Потрібна миттєва реакція.", text: "Ворожий вогонь на пораження.", choices: [
+                { text: "[А] Стрибати в спеціальний натягнутий тент на сусідню будівлю.", next: 39 },
+                { text: "[Б] Заскочити всередину технічної надбудови даху.", next: 39 }
+            ]},
+            39: { title: "Серія 39: «Поранення»", visual: "Напарник поранений у ногу, йому важко пересуватися.",text: "Критична ситуація з пораненим товаришем.", choices: [
+                { text: "[А] Зупинитися і перев'язати рану (витратити час).", next: 40 },
+                { text: "[Б] Залишити його в укритті з водою і йти по допомогу самому.", next: 40 }
+            ]},
+            40: { title: "Серія 40: «Вихід у місто»", visual: "Ти вибираєшся на тихі вулиці міста-примари.", text: "Де сховатися в покинутому місті?", choices: [
+                { text: "[А] Рухатися до закинутої залізничної станції.", next: 41 },
+                { text: "[Б] Засісти в конспіративній квартирі у центрі.", next: 41 }
+            ]},
+            41: { title: "Серія 41: «Незвична зустріч»", visual: "У схованці на тебе чекає людина, яку вважали загиблою.", text: "Неймовірна поява старого знайомого.", choices: [
+                { text: "[А] Повірити їй і вислухати пояснення.", next: 42 },
+                { text: "[Б] Звинуватити у зрадництві й тримати націленою зброю.", next: 42 }
+            ]},
+            42: { title: "Серія 42: «Правда про експеримент»", visual: "Розкрито істину про створення гри задля пошуку сил опору.", text: "Вся ця боротьба була випробуванням.", choices: [
+                { text: "[А] Погодитися очолити новий загін опору.", next: 43 },
+                { text: "[Б] Відмовитися від лідерства і піти своєю дорогою.", next: 43 }
+            ]},
+            43: { title: "Серія 43: «Новий сигнал»", visual: "На рації лунає закодований сигнал із підземних глибин.", text: "Новий виклик із глибин бункера.", choices: [
+                { text: "[А] Зібрати людей і вирушити на перевірку сигналу.", next: 44 },
+                { text: "[Б] Проігнорувати і залишитися в безпечному таборі.", next: 44 }
+            ]},
+            44: { title: "Серія 44: «Підземний комплекс»", visual: "Темний буровий комплекс, навколо мерехтять невідомі прилади.", text: "Спуск у незвідані підземні тунелі.", choices: [
+                { text: "[А] Увімкнути загальне живлення комплексу.", next: 45 },
+                { text: "[Б] Просуватися в темряві наосліп з ліхтариком.", next: 45 }
+            ]},
+            45: { title: "Серія 45: «Фінал третього акту»", visual: "Знайдено головний архів мережі з кодом управління світом.",text: "Ключовий вибір долі інформації.", choices: [
+                { text: "[А] Завантажити архів на свій носій.", next: 46 },
+                { text: "[Б] Знищити архів назавжди, щоб ніхто ним не володів.", next: 46 }
+            ]},
+            46: { title: "Серія 46: «Самознищення»", visual: "БЛОК IV: ФІНАЛЬНИЙ РУХ. Архів знищено, комплекс вибухає!", text: "До вибуху бази залишилося 2 хвилини.", choices: [
+                { text: "[А] Бігти до виходу по короткому тунелю з пастками.", next: 47 },
+                { text: "[Б] Шукати обхідний шлях через вентиляцію.", next: 47 }
+            ]},
+            47: { title: "Серія 47: «На поверхні»", visual: "Ти вибираєшся назовні в останню секунду під гуркіт вибуху.", text: "Потужний вибух руйнує підземний комплекс за спиною.", choices: [
+                { text: "[А] Подивитися назад на результат своєї роботи.", next: 48 },
+                { text: "[Б] Не оглядаючись, бігти до лісу.", next: 48 }
+            ]},
+            48: { title: "Серія 48: «Остання перешкода»", visual: "Дорогу перекривають залишки ворожих бойових дронів.", text: "Останній заслін на шляху до волі.", choices: [
+                { text: "[А] Здатись у полон, щоб дізнатися їхні плани зсередини.", next: 49 },
+                { text: "[Б] Ризикнути всім у відкритому прориві.", next: 49 }
+            ]},
+            49: { title: "Серія 49: «Один на один»", visual: "Ти відбиваєшся від останнього ворога. Настає світанок.", text: "Тиша після останньої сутички.", choices: [
+                { text: "[А] Йти пішки на схід до вільних територій.", next: 50 },
+                { text: "[Б] Побудувати тимчасовий притулок і чекати на команду.", next: 50 }
+            ]},
+            50: { title: "Серія 50: «Об'єднання»", visual: "До тебе приєднуються вижилі, які спостерігали через екрани.", text: "Зустріч із соратниками по боротьбі.", choices: [
+                { text: "[А] Створити новий безпечний табір для всіх.", next: 51 },
+                { text: "[Б] Очолити похід на головний центр ворога.", next: 51 }
+            ]},
+            51: { title: "Серія 51: «Фінальний штурм»", visual: "Підхід до головного бункера ворожої системи керування.", text: "Останній бій за майбутнє планети.", choices: [
+                { text: "[А] Взяти всю відповідальність і йти вперед самотужки.", next: 52 },
+                { text: "[Б] Розподілити задачі між усіма учасниками загону.", next: 52 }
+            ]},
+            52: { title: "Серія 52: «Серце мережі»", visual: "Ти стоїш перед головним рубильником системи світового контролю.", text: "Вибір вічності перед рубильником.", choices: [
+                { text: "[А] Вимкнути систему назавжди (зупинити технології).", next: 53 },
+                { text: "[Б] Перехопити контроль і залишити систему працювати під твоїм керівництвом.", next: 53 }
+            ]},
+            53: { title: "Серія 53: «Тиша»", visual: "Кнопку натиснуто. Усі екрани різко гаснуть. Абсолютна тиша.", text: "Технологічний світ зупинився.", choices: [
+                { text: "[А] Залишитися в цьому місці й почати все з чистого аркуша.", next: 54 },
+                { text: "[Б] Взяти рюкзак і піти в невідомість дорогою.", next: 54 }
+            ]},
+            54: { title: "Серія 54: «Новий світанок»", visual: "Люди виходять з укриттів під тепле сонце.", text: "Світ починає відновлюватися після темряви.", choices: [
+                { text: "[А] Зупинитися і допомогти першій зустрічній людині.", next: 55 },
+                { text: "[Б] Продовжити шлях самотнім мандрівником.", next: 55 }
+            ]},
+            55: { title: "Серія 55: «Роздуми»", visual: "Крупний план твого обличчя на тлі заходу сонця.", text: "Підсумки пройденого шляху.", choices: [
+                { text: "[А] Посміхнутися камері (знак перемоги).", next: 56 },
+                { text: "[Б] Залишитися суворим і зосередженим (війна не закінчена).", next: 56 }
+            ]},
+            56: { title: "Серія 56: «Послання»", visual: "У твоїй руці старий металевий жетон S.R.C.P.", text: "Пам'ять про минулі випробування.", choices: [
+                { text: "[А] Залишити жетон на камені біля дороги.", next: 57 },
+                { text: "[Б] Сховати його глибше в кишеню на згадку.", next: 57 }
+            ]},
+            57: { title: "Серія 57: «Поворот сюжету»", visual: "У кишені знову блимає таємничий індикатор, лунає сигнал.", text: "Система подає ознаки життя.", choices: [
+                { text: "[А] Відкрити сигнал і послухати нове повідомлення.", next: 58 },
+                { text: "[Б] Роздавити пристрій ногою раз і назавжди.", next: 58 }
+            ]},
+            58: { title: "Серія 58: «Нічиймівщина»", visual: "Камера віддаляється, охоплюючи масштаби світу, що оживає.", text: "Безкрайні простори нового світу.", choices: [
+                { text: "[А] Озирнутися назад.", next: 59 },
+                { text: "[Б] Впевнено крокувати вперед.", next: 59 }
+            ]},
+            59: { title: "Серія 59: «Фінальний монолог»", visual: "Ти дивишся в об'єктив: «Ми пройшли цей шлях разом...»", text: "Звернення до глядачів та гравців.", choices: [
+                { text: "[А] Написати в коментарях «ТАК, ПОТРІБЕН 2 СЕЗОН!»", next: 60 },
+                { text: "[Б] Запропонувати свою назву для наступного сезону.", next: 60 }
+            ]},
+            60: { title: "Серія 60: «Гранд-фінал сезону»", visual: "Чорний екран. Звук тихого перезавантаження системи.", text: "ПРОТОКОЛ: ПЕРЕЗАПУЩЕНО... Далі буде?", choices: [
+                { text: "🔄 ПЕРЕЗАПУСТИТИ СЕЗОН НАЖОЛОВО", next: 1 }
+            ]}
+        };
 
-        let currentMissionIdx = 0;
+        let currentSeriesId = 1;
 
-        function nextMission() {
-            currentMissionIdx = (currentMissionIdx + 1) % missions.length;
-            document.getElementById('missionTitle').innerText = missions[currentMissionIdx].title;
-            document.getElementById('missionText').innerText = missions[currentMissionIdx].text;
-            
-            // Змінюємо колір освітлення та оточення залежно від акту
-            if (currentMissionIdx === 1) {
-                scene.background = new THREE.Color(0x0a0a15);
-                cube.material.color.setHex(0x0088ff);
-            } else if (currentMissionIdx >= 3) {
+        function loadSeries(id) {
+            currentSeriesId = id;
+            const data = gameData[id];
+            if (!data) return;
+
+            document.getElementById('seriesNumber').innerText = `СЕРІЯ ${id} з 60`;
+            document.getElementById('missionTitle').innerText = data.title;
+            document.getElementById('visualText').innerText = "Візуальний ряд: " + data.visual;
+            document.getElementById('missionText').innerText = "Дія: " + data.text;
+
+            // Динамічна зміна кольорів оточення залежно від акту
+            if (id >= 16 && id <= 30) {
+                scene.background = new THREE.Color(0x0a0a1a);
+                playerMesh.material.color.setHex(0x0088ff);
+            } else if (id >= 31 && id <= 45) {
+                scene.background = new THREE.Color(0x1a0a0a);
+                playerMesh.material.color.setHex(0xffaa00);
+            } else if (id >= 46) {
                 scene.background = new THREE.Color(0x150505);
-                cube.material.color.setHex(0xff3333);
+                playerMesh.material.color.setHex(0xff3333);
             } else {
                 scene.background = new THREE.Color(0x0c0c0c);
-                cube.material.color.setHex(0x00ff66);
+                playerMesh.material.color.setHex(0x00ff66);
             }
+
+            // Рендер кнопок вибору
+            const container = document.getElementById('choicesContainer');
+            container.innerHTML = '';
+            data.choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = 'action-btn';
+                btn.innerText = choice.text;
+                btn.onclick = () => {
+                    loadSeries(choice.next);
+                };
+                container.appendChild(btn);
+            });
         }
 
-        // --- 3D СЦЕНА (Three.js) ---
+        // --- 3D СЦЕНА (THREE.JS) ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0c0c0c);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 5, 10);
+        camera.position.set(0, 6, 12);
         camera.lookAt(0, 0, 0);
 
         const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
 
-        // Освітлення у стилі кіберпанк
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        // Освітлення
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
-        const pointLight = new THREE.PointLight(0xff3333, 2, 50);
-        pointLight.position.set(0, 8, 0);
+        const pointLight = new THREE.PointLight(0xff3333, 2, 60);
+        pointLight.position.set(0, 10, 0);
         scene.add(pointLight);
 
-        // Підлога бункера/бази
-        const floorGeo = new THREE.PlaneGeometry(40, 40);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.8 });
+        // Підлога бункера
+        const floorGeo = new THREE.PlaneGeometry(50, 50);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
 
-        // Світлові смуги на підлозі (декор)
-        for(let i = -15; i <= 15; i += 5) {
-            const lineGeo = new THREE.BoxGeometry(0.2, 0.05, 38);
+        // Неонові лінії на підлозі
+        for (let i = -20; i <= 20; i += 5) {
+            const lineGeo = new THREE.BoxGeometry(0.15, 0.02, 48);
             const lineMat = new THREE.MeshBasicMaterial({ color: 0xff3333 });
             const line = new THREE.Mesh(lineGeo, lineMat);
             line.position.set(i, 0.01, 0);
             scene.add(line);
         }
 
-        // Персонаж гравця (аватари S.R.C.P.)
-        const cubeGeo = new THREE.BoxGeometry(1.2, 2, 0.8);
-        const cubeMat = new THREE.MeshStandardMaterial({ color: 0x00ff66, roughness: 0.3 });
-        const cube = new THREE.Mesh(cubeGeo, cubeMat);
-        cube.position.y = 1;
-        scene.add(cube);
+        // Персонаж гравця
+        const playerGeo = new THREE.BoxGeometry(1.2, 2, 0.8);
+        const playerMat = new THREE.MeshStandardMaterial({ color: 0x00ff66, roughness: 0.3 });
+        const playerMesh = new THREE.Mesh(playerGeo, playerMat);
+        playerMesh.position.y = 1;
+        scene.add(playerMesh);
 
-        // Перешкоди / колони на базі
-        const obstacles = [];
-        for (let i = 0; i < 6; i++) {
-            const obsGeo = new THREE.BoxGeometry(1.5, 4, 1.5);
+        // Колонні перешкоди
+        for (let i = 0; i < 8; i++) {
+            const obsGeo = new THREE.BoxGeometry(1.8, 5, 1.8);
             const obsMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
             const obs = new THREE.Mesh(obsGeo, obsMat);
-            obs.position.set((Math.random() - 0.5) * 20, 2, (Math.random() - 0.5) * 20);
+            obs.position.set((Math.random() - 0.5) * 30, 2.5, (Math.random() - 0.5) * 30);
             scene.add(obs);
-            obstacles.push(obs);
         }
 
         // Управління клавішами
-        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        const keys = { w: false, a: false, s: false, d: false };
 
         window.addEventListener('keydown', (e) => {
-            if (keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.code)) {
-                if(e.key === 'w' || e.code === 'KeyW' || e.key === 'ArrowUp') keys.w = true;
-                if(e.key === 's' || e.code === 'KeyS' || e.key === 'ArrowDown') keys.s = true;
-                if(e.key === 'a' || e.code === 'KeyA' || e.key === 'ArrowLeft') keys.a = true;
-                if(e.key === 'd' || e.code === 'KeyD' || e.key === 'ArrowRight') keys.d = true;
-            }
+            if (e.key === 'w' || e.code === 'KeyW' || e.key === 'ArrowUp') keys.w = true;
+            if (e.key === 's' || e.code === 'KeyS' || e.key === 'ArrowDown') keys.s = true;
+            if (e.key === 'a' || e.code === 'KeyA' || e.key === 'ArrowLeft') keys.a = true;
+            if (e.key === 'd' || e.code === 'KeyD' || e.key === 'ArrowRight') keys.d = true;
         });
 
         window.addEventListener('keyup', (e) => {
-            if(e.key === 'w' || e.code === 'KeyW' || e.key === 'ArrowUp') keys.w = false;
-            if(e.key === 's' || e.code === 'KeyS' || e.key === 'ArrowDown') keys.s = false;
-            if(e.key === 'a' || e.code === 'KeyA' || e.key === 'ArrowLeft') keys.a = false;
-            if(e.key === 'd' || e.code === 'KeyD' || e.key === 'ArrowRight') keys.d = false;
+            if (e.key === 'w' || e.code === 'KeyW' || e.key === 'ArrowUp') keys.w = false;
+            if (e.key === 's' || e.code === 'KeyS' || e.key === 'ArrowDown') keys.s = false;
+            if (e.key === 'a' || e.code === 'KeyA' || e.key === 'ArrowLeft') keys.a = false;
+            if (e.key === 'd' || e.code === 'KeyD' || e.key === 'ArrowRight') keys.d = false;
         });
 
-        // Анімація та рух
-        const speed = 0.12;
+        // Ігровий цикл рухомої 3D камери та персонажа
+        const speed = 0.14;
 
         function animate() {
             requestAnimationFrame(animate);
 
-            // Рух персонажа стрілками / WASD
-            if (keys.w || keys.ArrowUp) cube.position.z -= speed;
-            if (keys.s || keys.ArrowDown) cube.position.z += speed;
-            if (keys.a || keys.ArrowLeft) cube.position.x -= speed;
-            if (keys.d || keys.ArrowRight) cube.position.x += speed;
+            if (keys.w) playerMesh.position.z -= speed;
+            if (keys.s) playerMesh.position.z += speed;
+            if (keys.a) playerMesh.position.x -= speed;
+            if (keys.d) playerMesh.position.x += speed;
 
-            // Обмеження поля
-            cube.position.x = Math.max(-18, Math.min(18, cube.position.x));
-            cube.position.z = Math.max(-18, Math.min(18, cube.position.z));
+            // Межі карти
+            playerMesh.position.x = Math.max(-22, Math.min(22, playerMesh.position.x));
+            playerMesh.position.z = Math.max(-22, Math.min(22, playerMesh.position.z));
 
-            // Плавне слідування камери за персонажем
-            camera.position.x += (cube.position.x - camera.position.x) * 0.05;
-            camera.position.z += (cube.position.z + 8 - camera.position.z) * 0.05;
-            camera.lookAt(cube.position.x, cube.position.y, cube.position.z);
+            // Слідування камери за персонажем
+            camera.position.x += (playerMesh.position.x - camera.position.x) * 0.05;
+            camera.position.z += (playerMesh.position.z + 10 - camera.position.z) * 0.05;
+            camera.lookAt(playerMesh.position.x, playerMesh.position.y, playerMesh.position.z);
 
             renderer.render(scene, camera);
         }
 
+        // Старт гри
+        loadSeries(1);
         animate();
 
-        // Адаптивність при зміні розміру вікна
+        // Адаптивність вікна
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
